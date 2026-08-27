@@ -141,6 +141,50 @@ pages=1 · svgLength=756188 · backend=canvas2d · initialized=true
 3. 위 조치로도 해결되지 않으면 재현 정보를 정리해 [rhwp 이슈](https://github.com/edwardkim/rhwp/issues)로 보고한다.
    포함할 내용: `@rhwp/editor` 0.8.4 iframe 임베드, `pages`/`svgLength`/`backend` 진단값, iframe 크기, 브라우저 버전.
 
+## 저장 경로: 호스트 툴바 vs studio 파일 메뉴
+
+현재 문서 편집 기능은 rhwp studio 임베드가 전부이며, 저장 경로는 서로 연결되지 않은 두 개가 존재한다.
+
+| 경로 | 실제 동작 | 원본 파일 | 호스트 인지 | 영속성 |
+| --- | --- | --- | --- | --- |
+| 호스트 툴바 **저장** | `exportHwp()` → MockStorage(메모리 `Map`) → `notifySaved()` | 변경 없음 | O | 탭 메모리. 새로고침 시 소멸 |
+| 호스트 툴바 **다운로드** | `exportHwp()` → Blob 다운로드 → `notifySaved()` | 변경 없음 | O | 사용자 디스크 |
+| studio **파일 → 저장 / 다른 이름으로 저장** | 아래 폴백 경로를 거쳐 Blob 다운로드 | 변경 없음 | **X** | 사용자 디스크 |
+
+호스트의 저장과 다운로드는 서로 독립적이다. 다운로드는 MockStorage 스냅샷을 내려주는 것이 아니라 누른 시점의 문서를 다시 export한다.
+
+### studio 파일 메뉴 저장이 다운로드가 되는 이유 (studio 배포본 코드 확인)
+
+studio의 저장은 File System Access API를 우선 시도한다.
+
+1. 이전에 확보한 `currentFileHandle`이 있고 `forceSaveAs`가 아니면 그 파일에 직접 덮어쓴다.
+2. 없으면 `showSaveFilePicker()`를 호출해 네이티브 저장 대화상자로 실제 디스크 파일에 쓴다.
+3. 위가 실패하면 `{ method: 'fallback' }`을 반환하고, `URL.createObjectURL` + `a.download` 방식으로 **다운로드**한다.
+
+임베드 환경에서는 항상 3번이 된다.
+
+- 문서를 호스트가 `loadFile()` API로 주입하므로 1번의 파일 핸들이 없다.
+- [File System Access API는 크로스 오리진 iframe에서 사용할 수 없다](https://wicg.github.io/file-system-access/#privacy-considerations).
+  이를 허용하는 Permissions Policy 지시어는 아직 존재하지 않는다([WICG/file-system-access#245](https://github.com/WICG/file-system-access/issues/245)).
+  `@rhwp/editor`가 iframe에 주는 권한도 `clipboard-read; clipboard-write`뿐이다.
+  따라서 `showSaveFilePicker()`는 `SecurityError`로 거부된다.
+- studio는 이 예외를 잡아 처리한다. `AbortError` / `NotAllowedError`(사용자 취소)만 `cancelled`로 보고,
+  그 외 예외는 `[file:save] File System Access API 실패, 폴백:` 경고를 남긴 뒤 다운로드로 넘어간다.
+  즉 오류 alert이 아니라 다운로드로 끝난다.
+- `저장`은 파일명 대화상자 없이 바로 다운로드되고, `다른 이름으로 저장`은 studio 자체 파일명 입력창을 거친 뒤 다운로드된다.
+
+브라우저에서 확인하는 방법: DevTools 콘솔 컨텍스트를 `rhwp-studio` iframe으로 바꾼 뒤 파일 → 저장을 누르고
+위 `[file:save] ... 폴백:` 경고와 다운로드 발생을 함께 확인한다.
+
+향후 studio를 같은 오리진에 self-host하면 2번 경로가 살아나 **네이티브 저장 대화상자로 디스크에 직접 쓰게 된다.** 동작이 달라지므로 그때 재확인이 필요하다.
+
+### 상태 불일치 주의
+
+`@rhwp/editor` 0.8.4 API에는 호스트 저장 콜백이나 "studio 안에서 저장이 눌렸다"는 이벤트가 없다.
+그래서 studio 파일 메뉴로 저장하면 호스트는 이를 알 수 없다. MockStorage에도 남지 않고 호스트 상태 표시줄은 그대로인데,
+studio 내부는 `markClean('save')`으로 문서를 clean 처리한다. 실제 서버 저장을 붙이는 단계에서
+"저장한 줄 알았는데 서버에 없는" 사고 지점이 되므로, 그때 studio 파일 메뉴 사용을 막거나 호스트 저장으로 유도해야 한다.
+
 ## 20개 호환성 매트릭스 (이번 단계 비강제)
 
 | File | Format | Open | Render | Edit | Export | Reopen in Hancom | Result | Issue |
