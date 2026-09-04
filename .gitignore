@@ -27,3 +27,10 @@ coverage
 *.njsproj
 *.sln
 *.sw?
+
+# cursor plans
+.cursor
+
+# Local HWP/HWPX fixtures (may contain academy content)
+docs/rhwp/fixtures/*
+!docs/rhwp/fixtures/README.md
