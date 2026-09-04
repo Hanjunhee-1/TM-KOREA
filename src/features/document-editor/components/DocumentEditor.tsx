@@ -11,6 +11,12 @@ import { USER_ERROR_MESSAGES } from '../types/document-editor.types.ts'
 type DocumentEditorProps = {
   readOnly?: boolean
   renderer?: RendererBackend
+  /**
+   * CSS height for the editor surface. Must resolve to a definite value, since
+   * the studio lays itself out with 100vh and the iframe uses height: 100%.
+   */
+  height?: string
+  bordered?: boolean
   onReady?: (handle: RhwpEditorHandle) => void
   onPossiblyModified?: () => void
   onChange?: () => void
@@ -21,6 +27,8 @@ type DocumentEditorProps = {
 export default function DocumentEditor({
   readOnly = false,
   renderer,
+  height = '100%',
+  bordered = false,
   onReady,
   onPossiblyModified,
   onChange,
@@ -92,15 +100,11 @@ export default function DocumentEditor({
       ref={containerRef}
       sx={{
         display: 'flex',
-        // A definite height keeps the studio's 100vh layout and the iframe's
-        // height: 100% unambiguous; a min-height-only chain can resolve to auto.
-        height: 'calc(100vh - 210px)',
-        minHeight: 360,
+        height,
         width: '100%',
         bgcolor: 'background.paper',
-        border: 1,
+        border: bordered ? 1 : 0,
         borderColor: 'divider',
-        borderRadius: 1,
         overflow: 'hidden',
       }}
     />
