@@ -1,0 +1,58 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: tm-korea-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: tmkorea
+      MYSQL_USER: tmkorea
+      MYSQL_PASSWORD: tmkorea
+      MYSQL_ROOT_PASSWORD: tmkorea-root
+    ports:
+      - '3306:3306'
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - tm-korea-mysql:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: tm-korea-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    command: redis-server --save "" --appendonly no
+
+  minio:
+    image: minio/minio:latest
+    container_name: tm-korea-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: tmkorea
+      MINIO_ROOT_PASSWORD: tmkoreapass
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    command: server /data --console-address ":9001"
+    volumes:
+      - tm-korea-minio:/data
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set local http://minio:9000 tmkorea tmkoreapass;
+      mc mb -p local/tm-korea-documents;
+      exit 0;
+      "
+
+volumes:
+  tm-korea-mysql:
+  tm-korea-minio:

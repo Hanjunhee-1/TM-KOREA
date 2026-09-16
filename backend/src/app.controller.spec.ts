@@ -8,7 +8,23 @@ describe('AppController', () => {
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [
+        {
+          provide: AppService,
+          useValue: {
+            getHello: () => 'Hello World!',
+            getHealth: async () => ({
+              status: 'ok',
+              service: 'TM-KOREA API',
+              persistence: {
+                mysql: 'disabled',
+                redis: 'disabled',
+                minio: 'disabled',
+              },
+            }),
+          },
+        },
+      ],
     }).compile();
 
     appController = app.get<AppController>(AppController);
@@ -21,8 +37,8 @@ describe('AppController', () => {
   });
 
   describe('health', () => {
-    it('should return API health', () => {
-      expect(appController.getHealth()).toEqual({
+    it('should return API health', async () => {
+      await expect(appController.getHealth()).resolves.toMatchObject({
         status: 'ok',
         service: 'TM-KOREA API',
       });

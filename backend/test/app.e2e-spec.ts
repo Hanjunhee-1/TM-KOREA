@@ -23,14 +23,16 @@ describe('AppController (e2e)', () => {
       .expect('Hello World!');
   });
 
-  it('/api/health (GET)', () => {
-    return request(app.getHttpServer())
+  it('/api/health (GET)', async () => {
+    const response = await request(app.getHttpServer())
       .get('/api/health')
-      .expect(200)
-      .expect({
-        status: 'ok',
-        service: 'TM-KOREA API',
-      });
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      status: 'ok',
+      service: 'TM-KOREA API',
+    });
+    expect(response.body.persistence).toBeDefined();
   });
 
   afterEach(async () => {

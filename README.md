@@ -15,7 +15,9 @@ TM-KOREA/
 │   └── lib/document-storage/ # MockStorage (MinIO 아님)
 ├── packages/rhwp-adapter/    # @rhwp/editor 격리 계층
 ├── docs/rhwp/                # 호환성 / Round-trip 기록
-├── backend/                  # NestJS (health check만)
+├── docs/architecture/        # DB / Redis / MinIO 1차 설계
+├── backend/                  # NestJS (TypeORM + MySQL schema)
+├── docker-compose.yml        # MySQL / Redis / MinIO
 ├── package.json
 └── vite.config.ts
 ```
@@ -35,6 +37,16 @@ npm run dev
 
 API 주소: http://localhost:3000  
 헬스 체크: http://localhost:3000/api/health
+
+`DATABASE_HOST`를 설정하지 않으면 API는 DB 없이 기동됩니다. MySQL / Redis / MinIO를 쓰려면 프로젝트 루트에서 `docker compose up -d` 한 뒤 `backend/.env.example`을 `backend/.env`로 복사하고 다음을 실행하세요.
+
+```bash
+cd backend
+npm run migration:run
+npm run seed
+```
+
+1차 도메인 모델은 [docs/architecture/persistence.md](docs/architecture/persistence.md)에 정리되어 있습니다.
 
 ### 2. 프론트엔드 (React + MUI)
 
@@ -103,5 +115,7 @@ VITE_RHWP_RENDERER=auto
 | 루트 | `npm run dev` | 프론트 개발 서버 |
 | 루트 | `npm run build` | 프론트 프로덕션 빌드 |
 | 루트 | `npm run test` | Adapter / 파일 검증 / MockStorage 단위 테스트 |
-| backend | `npm run start:dev` | 백엔드 개발 서버 (watch) |
+| backend | `npm run dev` | 백엔드 개발 서버 (watch) |
 | backend | `npm run test` | 백엔드 단위 테스트 |
+| backend | `npm run migration:run` | MySQL 마이그레이션 |
+| backend | `npm run seed` | 관리자/교사/샘플 학생 시드 |
